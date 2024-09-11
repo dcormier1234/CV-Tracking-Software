@@ -113,11 +113,11 @@
     <table>
         <thead>
             <tr>
+                <th>Save Information</th>
                 <th>Status</th>
                 <th>Vehicle Name</th>
                 <th>Site Assignment</th>
                 <th>Usage Times</th>
-                <th>Save Information</th>
             </tr>
         </thead>
         <tbody id="vehicle-table-body">
@@ -132,8 +132,7 @@
         const vehicles = [
             "CV #002", "CV #003", "CV #004", "CV #005", "CV #006",
             "CV #007", "CV #008", "CV #009", "CV #010", "CV #011",
-            "CV #012", "CV #013", "CV #014", "CV #015", "CV #016",
-            "CV #017", "CV #018"
+            "CV #012", "CV #014", "CV #015", "CV #016", "CV #017", "CV #018"
         ];
 
         const statuses = ["AVAILABLE", "IN USE", "OUT OF ORDER"];
@@ -157,6 +156,16 @@
             const tableBody = document.getElementById('vehicle-table-body');
             vehicles.forEach((vehicle, index) => {
                 const row = document.createElement('tr');
+
+                // Save Button
+                const actionsCell = document.createElement('td');
+                actionsCell.className = 'actions-cell';
+                const saveButton = document.createElement('button');
+                saveButton.textContent = 'Save';
+                saveButton.className = 'save-button';
+                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError);
+                actionsCell.appendChild(saveButton);
+                row.appendChild(actionsCell);
 
                 // Status
                 const statusCell = document.createElement('td');
@@ -194,16 +203,6 @@
                 usageCell.appendChild(usageInput);
                 usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
-
-                // Save Button
-                const actionsCell = document.createElement('td');
-                actionsCell.className = 'actions-cell';
-                const saveButton = document.createElement('button');
-                saveButton.textContent = 'Save';
-                saveButton.className = 'save-button';
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError);
-                actionsCell.appendChild(saveButton);
-                row.appendChild(actionsCell);
 
                 // Highlight row based on saved status
                 updateRowColor(row, savedStatus);
