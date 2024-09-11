@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .title {
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            font-size: 28px;
+            color: #000;
+            text-align: center;
+        }
+        .subtitle {
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #dc3545; /* Red color */
+            color: white;
+        }
+        .dropdown {
+            width: 120px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input {
+            width: 150px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .save-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .save-button:hover {
+            background-color: #218838;
+        }
+        .actions-cell {
+            text-align: center;
+        }
+        .status-available {
+            background-color: #d4edda; /* Light green */
+        }
+        .status-in-use {
+            background-color: #fff3cd; /* Light yellow */
+        }
+        .status-out-of-order {
+            background-color: #f8d7da; /* Light red */
+        }
+        .error-message {
+            color: red;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">[ADMIRAL.]</h1>
+    <h2 class="subtitle">Company Vehicle (CV) Tracking Software</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Vehicle Name</th>
+                <th>Site Assignment</th>
+                <th>Usage Times</th>
+                <th>Save Information</th>
+            </tr>
+        </thead>
+        <tbody id="vehicle-table-body">
+            <!-- Rows will be added here by JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        const vehicles = [
+            "CV #002", "CV #003", "CV #004", "CV #005", "CV #006",
+            "CV #007", "CV #008", "CV #009", "CV #010", "CV #011",
+            "CV #012", "CV #013", "CV #014", "CV #015", "CV #016",
+            "CV #017", "CV #018"
+        ];
+
+        const statuses = ["AVAILABLE", "IN USE", "OUT OF ORDER"];
+
+        function createDropdown(selectedStatus) {
+            const dropdown = document.createElement('select');
+            dropdown.className = 'dropdown';
+            statuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status;
+                if (status === selectedStatus) {
+                    option.selected = true;
+                }
+                dropdown.appendChild(option);
+            });
+            return dropdown;
+        }
+
+        function populateTable() {
+            const tableBody = document.getElementById('vehicle-table-body');
+            vehicles.forEach((vehicle, index) => {
+                const row = document.createElement('tr');
+
+                // Status
+                const statusCell = document.createElement('td');
+                const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "";
+                const dropdown = createDropdown(savedStatus);
+                dropdown.addEventListener('change', () => updateRowColor(row, dropdown.value));
+                statusCell.appendChild(dropdown);
+                row.appendChild(statusCell);
+
+                // Vehicle Name
+                const vehicleCell = document.createElement('td');
+                vehicleCell.textContent = vehicle;
+                row.appendChild(vehicleCell);
+
+                // Site Assignment
+                const assignmentCell = document.createElement('td');
+                const assignmentInput = document.createElement('input');
+                assignmentInput.type = 'text';
+                assignmentInput.placeholder = 'Enter assigned site';
+                assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
+                const assignmentError = document.createElement('div');
+                assignmentError.className = 'error-message';
+                assignmentCell.appendChild(assignmentInput);
+                assignmentCell.appendChild(assignmentError);
+                row.appendChild(assignmentCell);
+
+                // Usage Times
+                const usageCell = document.createElement('td');
+                const usageInput = document.createElement('input');
+                usageInput.type = 'text';
+                usageInput.placeholder = 'Enter usage times';
+                usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
+                const usageError = document.createElement('div');
+                usageError.className = 'error-message';
+                usageCell.appendChild(usageInput);
+                usageCell.appendChild(usageError);
+                row.appendChild(usageCell);
+
+                // Save Button
+                const actionsCell = document.createElement('td');
+                actionsCell.className = 'actions-cell';
+                const saveButton = document.createElement('button');
+                saveButton.textContent = 'Save';
+                saveButton.className = 'save-button';
+                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError);
+                actionsCell.appendChild(saveButton);
+                row.appendChild(actionsCell);
+
+                // Highlight row based on saved status
+                updateRowColor(row, savedStatus);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        function updateRowColor(row, status) {
+            row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
+            if (status === 'AVAILABLE') {
+                row.classList.add('status-available');
+            } else if (status === 'IN USE') {
+                row.classList.add('status-in-use');
+            } else if (status === 'OUT OF ORDER') {
+                row.classList.add('status-out-of-order');
+            }
+        }
+
+        function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError) {
+            const status = statusCell.querySelector('select').value;
+            let isValid = true;
+
+            // Clear previous error messages
+            assignmentError.textContent = '';
+            usageError.textContent = '';
+
+            // Validate fields based on status
+            if (status === 'IN USE') {
+                if (!assignmentInput.value.trim()) {
+                    assignmentError.textContent = 'Site Assignment is required when status is IN USE.';
+                    isValid = false;
+                }
+                if (!usageInput.value.trim()) {
+                    usageError.textContent = 'Usage Times are required when status is IN USE.';
+                    isValid = false;
+                }
+            }
+
+            if (isValid) {
+                localStorage.setItem(`vehicle-${index}-status`, status);
+                localStorage.setItem(`vehicle-${index}-assignment`, assignmentInput.value);
+                localStorage.setItem(`vehicle-${index}-usage`, usageInput.value);
+                updateRowColor(statusCell.parentElement, status);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', populateTable);
+    </script>
+</body>
+</html>
