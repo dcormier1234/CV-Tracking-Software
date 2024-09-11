@@ -32,37 +32,6 @@
             text-align: center;
             margin-bottom: 20px;
         }
-        .container {
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        button {
-            padding: 8px 12px;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 0 10px;
-        }
-        .clear-button {
-            background-color: #dc3545; /* Red color */
-            color: white;
-        }
-        .clear-button:hover {
-            background-color: #c82333;
-        }
-        .dropdown {
-            width: 120px; /* Adjusted width */
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        input {
-            width: 150px; /* Adjusted width */
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -77,19 +46,32 @@
             background-color: #dc3545; /* Red color */
             color: white;
         }
+        .dropdown {
+            width: 120px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input {
+            width: 150px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
         .save-button {
-            background-color: #d6d6d6; /* Gray by default */
-            color: black;
+            background-color: #ccc; /* Default gray */
+            color: #000;
             border: none;
             padding: 8px 12px;
             border-radius: 4px;
-            cursor: pointer;
+            cursor: not-allowed;
         }
         .save-button.active {
-            background-color: #28a745; /* Green when active */
+            background-color: #28a745; /* Green color */
             color: white;
+            cursor: pointer;
         }
-        .save-button:hover {
+        .save-button:hover.active {
             background-color: #218838;
         }
         .actions-cell {
@@ -109,34 +91,30 @@
             font-size: 12px;
             margin-top: 4px;
         }
-        .success-message {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: #28a745;
-            color: white;
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #ddd;
             padding: 10px;
             border-radius: 4px;
             display: none;
         }
-        #clipboard-message {
-            display: none;
-            background-color: #28a745;
-            color: white;
-            padding: 10px;
-            border-radius: 4px;
-            text-align: center;
-            margin-top: 20px;
+        .notification.show {
+            display: block;
         }
     </style>
 </head>
 <body>
     <h1 class="title">[ADMIRAL.]</h1>
     <h2 class="subtitle">Company Vehicle (CV) Tracking Software</h2>
-    <div class="container">
-        <button class="clear-button" onclick="clearAll()">Clear All</button>
-        <button onclick="copyStatusUpdate()">Send Status Update</button>
+
+    <div style="margin-bottom: 20px; text-align: center;">
+        <button id="undo" style="background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Undo</button>
+        <button id="clearAll" style="background-color: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Clear All</button>
     </div>
+
     <table>
         <thead>
             <tr>
@@ -152,16 +130,23 @@
         </tbody>
     </table>
 
-    <p id="clipboard-message">The details have been copied to your clipboard. Please send this information in the OPS Teams chat.</p>
+    <div style="margin-top: 20px; text-align: center;">
+        <button id="sendStatusUpdate" style="background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Send Status Update</button>
+    </div>
+
+    <div id="statusUpdateMessage" class="notification"></div>
 
     <script>
         const vehicles = [
             "CV #002", "CV #003", "CV #004", "CV #005", "CV #006",
             "CV #007", "CV #008", "CV #009", "CV #010", "CV #011",
-            "CV #012", "CV #014", "CV #015", "CV #016", "CV #017", "CV #018"
+            "CV #012", "CV #014", "CV #015", "CV #016", "CV #017",
+            "CV #018"
         ];
 
         const statuses = ["AVAILABLE", "IN USE", "OUT OF ORDER"];
+        let lastSavedData = [];
+        let savedState = [];
 
         function createDropdown(selectedStatus) {
             const dropdown = document.createElement('select');
@@ -189,18 +174,15 @@
                 const saveButton = document.createElement('button');
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, saveButton);
+                saveButton.disabled = true;
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
                 // Status
                 const statusCell = document.createElement('td');
-                const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "AVAILABLE";
+                const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "";
                 const dropdown = createDropdown(savedStatus);
-                dropdown.addEventListener('change', () => {
-                    updateRowColor(row, dropdown.value);
-                    toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
-                });
+                dropdown.addEventListener('change', () => updateRowColor(row, dropdown.value));
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
 
@@ -217,7 +199,6 @@
                 assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
                 const assignmentError = document.createElement('div');
                 assignmentError.className = 'error-message';
-                assignmentInput.addEventListener('input', () => toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
                 assignmentCell.appendChild(assignmentInput);
                 assignmentCell.appendChild(assignmentError);
                 row.appendChild(assignmentCell);
@@ -230,15 +211,27 @@
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
                 const usageError = document.createElement('div');
                 usageError.className = 'error-message';
-                usageInput.addEventListener('input', () => toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
                 usageCell.appendChild(usageInput);
                 usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
 
+                tableBody.appendChild(row);
+
                 // Highlight row based on saved status
                 updateRowColor(row, savedStatus);
 
-                tableBody.appendChild(row);
+                // Track initial state for undo
+                lastSavedData[index] = {
+                    status: savedStatus,
+                    assignment: localStorage.getItem(`vehicle-${index}-assignment`) || "",
+                    usage: localStorage.getItem(`vehicle-${index}-usage`) || ""
+                };
+
+                // Update save button status
+                updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
+                dropdown.addEventListener('change', () => updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
+                assignmentInput.addEventListener('input', () => updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
+                usageInput.addEventListener('input', () => updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
             });
         }
 
@@ -253,6 +246,15 @@
             }
         }
 
+        function updateSaveButton(button, index, statusCell, assignmentInput, usageInput) {
+            const status = statusCell.querySelector('select').value;
+            const assignment = assignmentInput.value.trim();
+            const usage = usageInput.value.trim();
+            const initialState = lastSavedData[index];
+            button.disabled = (status === initialState.status && assignment === initialState.assignment && usage === initialState.usage);
+            button.classList.toggle('active', !button.disabled);
+        }
+
         function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, saveButton) {
             const status = statusCell.querySelector('select').value;
             let isValid = true;
@@ -262,104 +264,112 @@
             usageError.textContent = '';
 
             // Validate fields based on status
-            if (status === 'IN USE') {
-                if (!assignmentInput.value.trim()) {
-                    assignmentError.textContent = 'Site Assignment is required.';
-                    isValid = false;
-                }
-                if (!usageInput.value.trim()) {
-                    usageError.textContent = 'Usage Times are required.';
-                    isValid = false;
-                }
-            } else if (status === 'OUT OF ORDER') {
-                if (!assignmentInput.value.trim()) {
-                    assignmentError.textContent = 'Site Assignment is required.';
-                    isValid = false;
-                }
+            if (!assignmentInput.value.trim()) {
+                assignmentError.textContent = 'Site Assignment is required.';
+                isValid = false;
+            }
+            if (!usageInput.value.trim()) {
+                usageError.textContent = 'Usage Times are required.';
+                isValid = false;
             }
 
             if (isValid) {
+                // Save to local storage
                 localStorage.setItem(`vehicle-${index}-status`, status);
                 localStorage.setItem(`vehicle-${index}-assignment`, assignmentInput.value.trim());
                 localStorage.setItem(`vehicle-${index}-usage`, usageInput.value.trim());
-                showSuccessMessage('Saved successfully!');
-                toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
+                lastSavedData[index] = {
+                    status,
+                    assignment: assignmentInput.value.trim(),
+                    usage: usageInput.value.trim()
+                };
+                updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
             }
         }
 
         function clearAll() {
             const tableBody = document.getElementById('vehicle-table-body');
             const rows = tableBody.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                const statusCell = row.querySelector('td:nth-child(2)');
+                const assignmentInput = row.querySelector('td:nth-child(4) input');
+                const usageInput = row.querySelector('td:nth-child(5) input');
+                const saveButton = row.querySelector('button.save-button');
 
-            rows.forEach(row => {
-                const statusCell = row.children[1];
-                const assignmentInput = row.children[3].querySelector('input');
-                const usageInput = row.children[4].querySelector('input');
-                const saveButton = row.children[0].querySelector('.save-button');
-
-                // Reset inputs
+                // Reset fields
                 statusCell.querySelector('select').value = 'AVAILABLE';
                 assignmentInput.value = '';
                 usageInput.value = '';
-                localStorage.removeItem(`vehicle-${Array.from(rows).indexOf(row)}-status`);
-                localStorage.removeItem(`vehicle-${Array.from(rows).indexOf(row)}-assignment`);
-                localStorage.removeItem(`vehicle-${Array.from(rows).indexOf(row)}-usage`);
 
-                // Update row color
+                // Update row color and save button
                 updateRowColor(row, 'AVAILABLE');
-
-                // Reset save button
-                saveButton.classList.remove('active');
+                updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
             });
 
-            showSuccessMessage('All details cleared and vehicles set to AVAILABLE.');
+            // Save state for undo
+            savedState = JSON.parse(JSON.stringify(lastSavedData));
+            localStorage.clear(); // Optionally clear local storage
         }
 
-        function toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput) {
-            const status = statusCell.querySelector('select').value;
-            const assignment = assignmentInput.value.trim();
-            const usage = usageInput.value.trim();
+        function undoClearAll() {
+            if (savedState.length > 0) {
+                savedState.forEach((data, index) => {
+                    const row = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1})`);
+                    const statusCell = row.querySelector('td:nth-child(2)');
+                    const assignmentInput = row.querySelector('td:nth-child(4) input');
+                    const usageInput = row.querySelector('td:nth-child(5) input');
+                    const saveButton = row.querySelector('button.save-button');
 
-            const isModified = 
-                localStorage.getItem(`vehicle-${index}-status`) !== status ||
-                localStorage.getItem(`vehicle-${index}-assignment`) !== assignment ||
-                localStorage.getItem(`vehicle-${index}-usage`) !== usage;
+                    // Restore previous values
+                    const { status, assignment, usage } = data;
+                    statusCell.querySelector('select').value = status;
+                    assignmentInput.value = assignment;
+                    usageInput.value = usage;
 
-            if (assignment || usage || isModified) {
-                saveButton.classList.add('active');
-            } else {
-                saveButton.classList.remove('active');
+                    // Update row color and save button
+                    updateRowColor(row, status);
+                    updateSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
+
+                    // Restore to local storage
+                    localStorage.setItem(`vehicle-${index}-status`, status);
+                    localStorage.setItem(`vehicle-${index}-assignment`, assignment);
+                    localStorage.setItem(`vehicle-${index}-usage`, usage);
+                });
+
+                // Clear saved state
+                savedState = [];
             }
         }
 
-        function showSuccessMessage(message) {
-            const successMessage = document.createElement('div');
-            successMessage.className = 'success-message';
-            successMessage.textContent = message;
-            document.body.appendChild(successMessage);
-            setTimeout(() => {
-                successMessage.remove();
-            }, 3000);
-        }
+        function copyStatusToClipboard() {
+            const tableBody = document.getElementById('vehicle-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+            let clipboardText = '';
 
-        function copyStatusUpdate() {
-            const text = vehicles.map((vehicle, index) => {
-                const status = localStorage.getItem(`vehicle-${index}-status`) || 'N/A';
-                const assignment = localStorage.getItem(`vehicle-${index}-assignment`) || 'N/A';
-                const usage = localStorage.getItem(`vehicle-${index}-usage`) || 'N/A';
-                return `Vehicle: ${vehicle}, Status: ${status}, Site Assignment: ${assignment}, Usage Times: ${usage}`;
-            }).join('\n');
+            rows.forEach(row => {
+                const vehicleName = row.querySelector('td:nth-child(3)').textContent;
+                const status = row.querySelector('td:nth-child(2) select').value;
+                const assignment = row.querySelector('td:nth-child(4) input').value.trim();
+                const usage = row.querySelector('td:nth-child(5) input').value.trim();
+                
+                clipboardText += `• ${vehicleName}\n  Status: ${status}\n  Site Assignment: ${assignment}\n  Usage Times: ${usage}\n\n`;
+            });
 
-            navigator.clipboard.writeText(text).then(() => {
-                const clipboardMessage = document.getElementById('clipboard-message');
-                clipboardMessage.style.display = 'block';
+            navigator.clipboard.writeText(clipboardText).then(() => {
+                const statusUpdateMessage = document.getElementById('statusUpdateMessage');
+                statusUpdateMessage.textContent = 'Status update copied to clipboard';
+                statusUpdateMessage.classList.add('show');
                 setTimeout(() => {
-                    clipboardMessage.style.display = 'none';
+                    statusUpdateMessage.classList.remove('show');
                 }, 3000);
             });
         }
 
-        document.addEventListener('DOMContentLoaded', populateTable);
+        document.getElementById('sendStatusUpdate').addEventListener('click', copyStatusToClipboard);
+        document.getElementById('clearAll').addEventListener('click', clearAll);
+        document.getElementById('undo').addEventListener('click', undoClearAll);
+
+        populateTable();
     </script>
 </body>
 </html>
