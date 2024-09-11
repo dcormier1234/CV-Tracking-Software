@@ -59,12 +59,16 @@
             border-radius: 4px;
         }
         .save-button {
-            background-color: #28a745;
-            color: white;
+            background-color: #d6d6d6; /* Grey by default */
+            color: black;
             border: none;
             padding: 8px 12px;
             border-radius: 4px;
             cursor: pointer;
+        }
+        .save-button.active {
+            background-color: #28a745; /* Green when active */
+            color: white;
         }
         .save-button:hover {
             background-color: #218838;
@@ -163,7 +167,7 @@
                 const saveButton = document.createElement('button');
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError);
+                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, saveButton);
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
@@ -172,6 +176,7 @@
                 const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "";
                 const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => updateRowColor(row, dropdown.value));
+                dropdown.addEventListener('change', () => toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
 
@@ -188,6 +193,7 @@
                 assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
                 const assignmentError = document.createElement('div');
                 assignmentError.className = 'error-message';
+                assignmentInput.addEventListener('input', () => toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
                 assignmentCell.appendChild(assignmentInput);
                 assignmentCell.appendChild(assignmentError);
                 row.appendChild(assignmentCell);
@@ -200,6 +206,7 @@
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
                 const usageError = document.createElement('div');
                 usageError.className = 'error-message';
+                usageInput.addEventListener('input', () => toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
                 usageCell.appendChild(usageInput);
                 usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
@@ -222,7 +229,7 @@
             }
         }
 
-        function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError) {
+        function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, saveButton) {
             const status = statusCell.querySelector('select').value;
             let isValid = true;
 
@@ -247,23 +254,41 @@
                 localStorage.setItem(`vehicle-${index}-assignment`, assignmentInput.value);
                 localStorage.setItem(`vehicle-${index}-usage`, usageInput.value);
                 updateRowColor(statusCell.parentElement, status);
-                showSuccessMessage('Row saved successfully.');
+                showSuccessMessage('Save successful!');
+                saveButton.classList.remove('active');
+            }
+        }
+
+        function toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput) {
+            const status = statusCell.querySelector('select').value;
+            const assignment = assignmentInput.value.trim();
+            const usage = usageInput.value.trim();
+
+            const isModified = 
+                localStorage.getItem(`vehicle-${index}-status`) !== status ||
+                localStorage.getItem(`vehicle-${index}-assignment`) !== assignment ||
+                localStorage.getItem(`vehicle-${index}-usage`) !== usage;
+
+            if (assignment || usage || isModified) {
+                saveButton.classList.add('active');
+            } else {
+                saveButton.classList.remove('active');
             }
         }
 
         function showSuccessMessage(message) {
-            const messageElement = document.createElement('div');
-            messageElement.className = 'success-message';
-            messageElement.textContent = message;
-            document.body.appendChild(messageElement);
+            const successMessage = document.createElement('div');
+            successMessage.className = 'success-message';
+            successMessage.textContent = message;
+            document.body.appendChild(successMessage);
             setTimeout(() => {
-                document.body.removeChild(messageElement);
+                successMessage.remove();
             }, 3000);
         }
 
         function copyStatusUpdate() {
             const text = vehicles.map((vehicle, index) => {
-                const status = localStorage.getItem(`vehicle-${index}-status`) || 'Not Updated';
+                const status = localStorage.getItem(`vehicle-${index}-status`) || 'N/A';
                 const assignment = localStorage.getItem(`vehicle-${index}-assignment`) || 'N/A';
                 const usage = localStorage.getItem(`vehicle-${index}-usage`) || 'N/A';
                 return `Vehicle: ${vehicle}, Status: ${status}, Site Assignment: ${assignment}, Usage Times: ${usage}`;
