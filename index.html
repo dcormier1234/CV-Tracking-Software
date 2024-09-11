@@ -86,6 +86,25 @@
             font-size: 12px;
             margin-top: 4px;
         }
+        .success-message {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        #clipboard-message {
+            display: none;
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -105,6 +124,9 @@
             <!-- Rows will be added here by JavaScript -->
         </tbody>
     </table>
+
+    <button onclick="copyStatusUpdate()">Send Status Update</button>
+    <p id="clipboard-message">The details have been copied to your clipboard. Please send this information in the OPS Teams chat.</p>
 
     <script>
         const vehicles = [
@@ -226,7 +248,35 @@
                 localStorage.setItem(`vehicle-${index}-assignment`, assignmentInput.value);
                 localStorage.setItem(`vehicle-${index}-usage`, usageInput.value);
                 updateRowColor(statusCell.parentElement, status);
+                showSuccessMessage('Row saved successfully.');
             }
+        }
+
+        function showSuccessMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'success-message';
+            messageElement.textContent = message;
+            document.body.appendChild(messageElement);
+            setTimeout(() => {
+                document.body.removeChild(messageElement);
+            }, 3000);
+        }
+
+        function copyStatusUpdate() {
+            const text = vehicles.map((vehicle, index) => {
+                const status = localStorage.getItem(`vehicle-${index}-status`) || 'Not Updated';
+                const assignment = localStorage.getItem(`vehicle-${index}-assignment`) || 'N/A';
+                const usage = localStorage.getItem(`vehicle-${index}-usage`) || 'N/A';
+                return `${vehicle} - Status: ${status}, Site Assignment: ${assignment}, Usage Times: ${usage}`;
+            }).join('\n');
+
+            navigator.clipboard.writeText(text).then(() => {
+                const clipboardMessage = document.getElementById('clipboard-message');
+                clipboardMessage.style.display = 'block';
+                setTimeout(() => {
+                    clipboardMessage.style.display = 'none';
+                }, 3000);
+            });
         }
 
         document.addEventListener('DOMContentLoaded', populateTable);
