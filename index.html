@@ -59,7 +59,7 @@
             border-radius: 4px;
         }
         .save-button {
-            background-color: #d6d6d6; /* Grey by default */
+            background-color: #d6d6d6; /* Gray by default */
             color: black;
             border: none;
             padding: 8px 12px;
@@ -175,8 +175,10 @@
                 const statusCell = document.createElement('td');
                 const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "";
                 const dropdown = createDropdown(savedStatus);
-                dropdown.addEventListener('change', () => updateRowColor(row, dropdown.value));
-                dropdown.addEventListener('change', () => toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput));
+                dropdown.addEventListener('change', () => {
+                    updateRowColor(row, dropdown.value);
+                    toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
+                });
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
 
