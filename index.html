@@ -32,6 +32,37 @@
             text-align: center;
             margin-bottom: 20px;
         }
+        .container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+        }
+        .clear-button {
+            background-color: #dc3545; /* Red color */
+            color: white;
+        }
+        .clear-button:hover {
+            background-color: #c82333;
+        }
+        .dropdown {
+            width: 120px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input {
+            width: 150px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -45,18 +76,6 @@
         th {
             background-color: #dc3545; /* Red color */
             color: white;
-        }
-        .dropdown {
-            width: 120px; /* Adjusted width */
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        input {
-            width: 150px; /* Adjusted width */
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
         }
         .save-button {
             background-color: #d6d6d6; /* Gray by default */
@@ -114,6 +133,10 @@
 <body>
     <h1 class="title">[ADMIRAL.]</h1>
     <h2 class="subtitle">Company Vehicle (CV) Tracking Software</h2>
+    <div class="container">
+        <button class="clear-button" onclick="clearAll()">Clear All</button>
+        <button onclick="copyStatusUpdate()">Send Status Update</button>
+    </div>
     <table>
         <thead>
             <tr>
@@ -129,7 +152,6 @@
         </tbody>
     </table>
 
-    <button onclick="copyStatusUpdate()">Send Status Update</button>
     <p id="clipboard-message">The details have been copied to your clipboard. Please send this information in the OPS Teams chat.</p>
 
     <script>
@@ -173,7 +195,7 @@
 
                 // Status
                 const statusCell = document.createElement('td');
-                const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "";
+                const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "AVAILABLE";
                 const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
@@ -242,23 +264,55 @@
             // Validate fields based on status
             if (status === 'IN USE') {
                 if (!assignmentInput.value.trim()) {
-                    assignmentError.textContent = 'Site Assignment is required when status is IN USE.';
+                    assignmentError.textContent = 'Site Assignment is required.';
                     isValid = false;
                 }
                 if (!usageInput.value.trim()) {
-                    usageError.textContent = 'Usage Times are required when status is IN USE.';
+                    usageError.textContent = 'Usage Times are required.';
+                    isValid = false;
+                }
+            } else if (status === 'OUT OF ORDER') {
+                if (!assignmentInput.value.trim()) {
+                    assignmentError.textContent = 'Site Assignment is required.';
                     isValid = false;
                 }
             }
 
             if (isValid) {
                 localStorage.setItem(`vehicle-${index}-status`, status);
-                localStorage.setItem(`vehicle-${index}-assignment`, assignmentInput.value);
-                localStorage.setItem(`vehicle-${index}-usage`, usageInput.value);
-                updateRowColor(statusCell.parentElement, status);
-                showSuccessMessage('Save successful!');
-                saveButton.classList.remove('active');
+                localStorage.setItem(`vehicle-${index}-assignment`, assignmentInput.value.trim());
+                localStorage.setItem(`vehicle-${index}-usage`, usageInput.value.trim());
+                showSuccessMessage('Saved successfully!');
+                toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput);
             }
+        }
+
+        function clearAll() {
+            const tableBody = document.getElementById('vehicle-table-body');
+            const rows = tableBody.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const statusCell = row.children[1];
+                const assignmentInput = row.children[3].querySelector('input');
+                const usageInput = row.children[4].querySelector('input');
+                const saveButton = row.children[0].querySelector('.save-button');
+
+                // Reset inputs
+                statusCell.querySelector('select').value = 'AVAILABLE';
+                assignmentInput.value = '';
+                usageInput.value = '';
+                localStorage.removeItem(`vehicle-${Array.from(rows).indexOf(row)}-status`);
+                localStorage.removeItem(`vehicle-${Array.from(rows).indexOf(row)}-assignment`);
+                localStorage.removeItem(`vehicle-${Array.from(rows).indexOf(row)}-usage`);
+
+                // Update row color
+                updateRowColor(row, 'AVAILABLE');
+
+                // Reset save button
+                saveButton.classList.remove('active');
+            });
+
+            showSuccessMessage('All details cleared and vehicles set to AVAILABLE.');
         }
 
         function toggleSaveButton(saveButton, index, statusCell, assignmentInput, usageInput) {
