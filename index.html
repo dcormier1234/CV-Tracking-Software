@@ -47,7 +47,7 @@
             color: white;
         }
         .dropdown {
-            width: 120px; /* Adjusted width */
+            width: 150px; /* Adjusted width */
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -155,29 +155,17 @@
         const statuses = ["--", "AVAILABLE", "IN USE", "OUT OF ORDER"];
         let previousState = [];
 
-        function createDropdown(selectedStatus) {
+        function createDropdown(selectedValue, isSiteAssignment) {
             const dropdown = document.createElement('select');
             dropdown.className = 'dropdown';
-            statuses.forEach(status => {
-                const option = document.createElement('option');
-                option.value = status;
-                option.textContent = status;
-                if (status === selectedStatus) {
-                    option.selected = true;
-                }
-                dropdown.appendChild(option);
-            });
-            return dropdown;
-        }
-
-        function createSiteAssignmentDropdown() {
-            const dropdown = document.createElement('select');
-            dropdown.className = 'dropdown';
-            const options = ["Shediac Road Auto", "Goguen Tire", "Trim-Line", "OTHER"];
+            const options = isSiteAssignment ? ["Shediac Road Auto", "Goguen Tire", "Trim-Line", "OTHER"] : statuses;
             options.forEach(optionText => {
                 const option = document.createElement('option');
                 option.value = optionText;
                 option.textContent = optionText;
+                if (optionText === selectedValue) {
+                    option.selected = true;
+                }
                 dropdown.appendChild(option);
             });
             return dropdown;
@@ -202,9 +190,14 @@
                 // Status
                 const statusCell = document.createElement('td');
                 const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "--";
-                const dropdown = createDropdown(savedStatus);
+                const dropdown = createDropdown(savedStatus, false);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
+                    if (dropdown.value === "OUT OF ORDER") {
+                        assignmentInput.replaceWith(createDropdown(localStorage.getItem(`vehicle-${index}-assignment`) || "", true));
+                    } else {
+                        assignmentInput.replaceWith(createAssignmentInput(localStorage.getItem(`vehicle-${index}-assignment`) || ""));
+                    }
                     checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
                 });
                 statusCell.appendChild(dropdown);
@@ -219,13 +212,9 @@
                 const assignmentCell = document.createElement('td');
                 let assignmentInput;
                 if (savedStatus === 'OUT OF ORDER') {
-                    assignmentInput = createSiteAssignmentDropdown();
-                    assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
+                    assignmentInput = createDropdown(localStorage.getItem(`vehicle-${index}-assignment`) || "", true);
                 } else {
-                    assignmentInput = document.createElement('input');
-                    assignmentInput.type = 'text';
-                    assignmentInput.placeholder = 'Enter assigned site';
-                    assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
+                    assignmentInput = createAssignmentInput(localStorage.getItem(`vehicle-${index}-assignment`) || "");
                 }
                 assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
                 const assignmentError = document.createElement('div');
@@ -262,6 +251,14 @@
 
                 tableBody.appendChild(row);
             });
+        }
+
+        function createAssignmentInput(value) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Enter assigned site';
+            input.value = value;
+            return input;
         }
 
         function updateRowColor(row, status) {
@@ -344,9 +341,14 @@
 
                 // Status
                 const statusCell = document.createElement('td');
-                const dropdown = createDropdown(rowData.status);
+                const dropdown = createDropdown(rowData.status, false);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
+                    if (dropdown.value === "OUT OF ORDER") {
+                        assignmentInput.replaceWith(createDropdown(rowData.assignment, true));
+                    } else {
+                        assignmentInput.replaceWith(createAssignmentInput(rowData.assignment));
+                    }
                     checkForChanges(rowData.index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
                 });
                 statusCell.appendChild(dropdown);
@@ -361,13 +363,9 @@
                 const assignmentCell = document.createElement('td');
                 let assignmentInput;
                 if (rowData.status === 'OUT OF ORDER') {
-                    assignmentInput = createSiteAssignmentDropdown();
-                    assignmentInput.value = rowData.assignment;
+                    assignmentInput = createDropdown(rowData.assignment, true);
                 } else {
-                    assignmentInput = document.createElement('input');
-                    assignmentInput.type = 'text';
-                    assignmentInput.placeholder = 'Enter assigned site';
-                    assignmentInput.value = rowData.assignment;
+                    assignmentInput = createAssignmentInput(rowData.assignment);
                 }
                 assignmentInput.addEventListener('input', () => checkForChanges(rowData.index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
                 const assignmentError = document.createElement('div');
