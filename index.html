@@ -198,7 +198,7 @@
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
                 saveButton.disabled = true;
-                saveButton.onclick = () => saveRow(index, statusCell, locationInput, usageInput, notesInput, locationError, usageError);
+                saveButton.onclick = () => saveRow(index);
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
@@ -208,7 +208,7 @@
                 const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
-                    checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value);
+                    checkForChanges(index);
                 });
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
@@ -229,11 +229,8 @@
                     locationInput.placeholder = 'Enter location';
                     locationInput.value = localStorage.getItem(`vehicle-${index}-location`) || "";
                 }
-                locationInput.addEventListener('input', () => checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value));
-                const locationError = document.createElement('div');
-                locationError.className = 'error-message';
+                locationInput.addEventListener('input', () => checkForChanges(index));
                 locationCell.appendChild(locationInput);
-                locationCell.appendChild(locationError);
                 row.appendChild(locationCell);
 
                 // Usage Times
@@ -242,11 +239,8 @@
                 usageInput.type = 'text';
                 usageInput.placeholder = 'Enter usage times';
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
-                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value));
-                const usageError = document.createElement('div');
-                usageError.className = 'error-message';
+                usageInput.addEventListener('input', () => checkForChanges(index));
                 usageCell.appendChild(usageInput);
-                usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
 
                 // Notes
@@ -255,7 +249,7 @@
                 notesInput.type = 'text';
                 notesInput.placeholder = 'Enter notes';
                 notesInput.value = localStorage.getItem(`vehicle-${index}-notes`) || "";
-                notesInput.addEventListener('input', () => checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value));
+                notesInput.addEventListener('input', () => checkForChanges(index));
                 notesCell.appendChild(notesInput);
                 row.appendChild(notesCell);
 
@@ -270,57 +264,34 @@
             });
         }
 
-        function getTableData() {
-            return Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => {
-                const cells = row.children;
-                const status = cells[1].querySelector('select').value;
-                const location = status === 'OUT OF ORDER'
-                    ? cells[3].querySelector('select').value
-                    : cells[3].querySelector('input').value;
-                return {
-                    vehicle: cells[2].textContent,
-                    status,
-                    location,
-                    usage: cells[4].querySelector('input').value,
-                    notes: cells[5].querySelector('input').value
-                };
-            });
-        }
+        function checkForChanges(index) {
+            const row = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1})`);
+            const status = row.children[1].querySelector('select').value;
+            const location = status === 'OUT OF ORDER'
+                ? row.children[3].querySelector('select').value
+                : row.children[3].querySelector('input').value;
+            const usage = row.children[4].querySelector('input').value;
+            const notes = row.children[5].querySelector('input').value;
 
-        function updateRowColor(row, status) {
-            row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
-            switch (status) {
-                case 'AVAILABLE':
-                    row.classList.add('status-available');
-                    break;
-                case 'IN USE':
-                    row.classList.add('status-in-use');
-                    break;
-                case 'OUT OF ORDER':
-                    row.classList.add('status-out-of-order');
-                    break;
-            }
-        }
-
-        function checkForChanges(index, status, location, usage, notes) {
             const savedState = previousState[index];
             const hasChanges = savedState.status !== status ||
                 savedState.location !== location ||
                 savedState.usage !== usage ||
                 savedState.notes !== notes;
-            
-            const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
+
+            const saveButton = row.querySelector('.save-button');
             saveButton.disabled = !hasChanges;
             saveButton.classList.toggle('enabled', hasChanges);
         }
 
-        function saveRow(index, statusCell, locationInput, usageInput, notesInput, locationError, usageError) {
-            const status = statusCell.querySelector('select').value;
+        function saveRow(index) {
+            const row = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1})`);
+            const status = row.children[1].querySelector('select').value;
             const location = status === 'OUT OF ORDER'
-                ? locationInput.querySelector('select').value
-                : locationInput.value;
-            const usage = usageInput.value;
-            const notes = notesInput.value;
+                ? row.children[3].querySelector('select').value
+                : row.children[3].querySelector('input').value;
+            const usage = row.children[4].querySelector('input').value;
+            const notes = row.children[5].querySelector('input').value;
             localStorage.setItem(`vehicle-${index}-status`, status);
             localStorage.setItem(`vehicle-${index}-location`, location);
             localStorage.setItem(`vehicle-${index}-usage`, usage);
@@ -333,7 +304,7 @@
                 notes
             };
 
-            const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
+            const saveButton = row.querySelector('.save-button');
             saveButton.disabled = true;
             saveButton.classList.remove('enabled');
         }
