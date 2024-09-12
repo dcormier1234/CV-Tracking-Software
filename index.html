@@ -48,7 +48,6 @@
         ];
 
         const statuses = ["--", "AVAILABLE", "IN USE", "OUT OF ORDER"];
-        const siteAssignments = ["SRA", "TrimLine", "Goguen Tires", "OTHER"];
         let previousState = [];
 
         function createDropdown(options, selectedOption) {
@@ -78,7 +77,7 @@
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
                 saveButton.disabled = true;
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, noteInput);
+                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, noteInput);
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
@@ -106,10 +105,7 @@
                 assignmentInput.placeholder = 'Enter assigned site';
                 assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
                 assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value));
-                const assignmentError = document.createElement('div');
-                assignmentError.className = 'error-message';
                 assignmentCell.appendChild(assignmentInput);
-                assignmentCell.appendChild(assignmentError);
                 row.appendChild(assignmentCell);
 
                 // Usage Times
@@ -119,10 +115,7 @@
                 usageInput.placeholder = 'Enter usage times';
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
                 usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value));
-                const usageError = document.createElement('div');
-                usageError.className = 'error-message';
                 usageCell.appendChild(usageInput);
-                usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
 
                 // Note Field (Hidden by default)
@@ -157,27 +150,19 @@
                 row.classList.add('status-in-use');
             } else if (status === 'OUT OF ORDER') {
                 row.classList.add('status-out-of-order');
-            } else if (status === '--') {
-                row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
             }
         }
 
         function toggleNoteColumn(row, status) {
             const noteHeader = document.querySelector('.note-header');
             const noteInput = row.querySelector('.note-input');
-            const assignmentInput = row.querySelector('input[placeholder="Enter assigned site"]');
 
             if (status === 'OUT OF ORDER') {
                 noteInput.style.display = 'block'; // Show the note field
                 noteHeader.style.display = 'table-cell'; // Show the Note column header
-                assignmentInput.replaceWith(createDropdown(siteAssignments, assignmentInput.value)); // Change Site Assignment to dropdown
             } else {
                 noteInput.style.display = 'none'; // Hide the note field
                 noteHeader.style.display = 'none'; // Hide the Note column header
-                const dropdown = row.querySelector('.dropdown');
-                if (dropdown) {
-                    dropdown.replaceWith(assignmentInput); // Restore the input box for site assignment
-                }
             }
         }
 
@@ -195,10 +180,10 @@
             }
         }
 
-        function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, noteInput) {
+        function saveRow(index, statusCell, assignmentInput, usageInput, noteInput) {
             const saveButton = document.querySelectorAll('.save-button')[index];
             const status = statusCell.querySelector('select').value;
-            const assignment = status === 'OUT OF ORDER' ? assignmentInput.querySelector('select').value : assignmentInput.value;
+            const assignment = assignmentInput.value;
             const usage = usageInput.value;
             const note = noteInput.value;
 
