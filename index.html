@@ -133,7 +133,7 @@
                 <th>Save Information</th>
                 <th>Status</th>
                 <th>Vehicle Name</th>
-                <th>Site Assignment</th>
+                <th>Location</th> <!-- Changed column title -->
                 <th>Usage Times</th>
                 <th>Notes</th> <!-- New Notes column -->
             </tr>
@@ -170,15 +170,15 @@
             return dropdown;
         }
 
-        function createAssignmentDropdown(selectedAssignment) {
-            const assignments = ['Shediac Road Auto', 'Goguen Tire', 'Trim-Line', 'OTHER'];
+        function createLocationDropdown(selectedLocation) {
+            const locations = ['Shediac Road Auto', 'Goguen Tire', 'Trim-Line', 'OTHER'];
             const dropdown = document.createElement('select');
             dropdown.className = 'dropdown';
-            assignments.forEach(assignment => {
+            locations.forEach(location => {
                 const option = document.createElement('option');
-                option.value = assignment;
-                option.textContent = assignment;
-                if (assignment === selectedAssignment) {
+                option.value = location;
+                option.textContent = location;
+                if (location === selectedLocation) {
                     option.selected = true;
                 }
                 dropdown.appendChild(option);
@@ -198,7 +198,7 @@
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
                 saveButton.disabled = true;
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, notesInput, assignmentError, usageError);
+                saveButton.onclick = () => saveRow(index, statusCell, locationInput, usageInput, notesInput, locationError, usageError);
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
@@ -208,7 +208,7 @@
                 const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
-                    checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
+                    checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value);
                 });
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
@@ -218,23 +218,23 @@
                 vehicleCell.textContent = vehicle;
                 row.appendChild(vehicleCell);
 
-                // Site Assignment
-                const assignmentCell = document.createElement('td');
-                let assignmentInput;
+                // Location
+                const locationCell = document.createElement('td');
+                let locationInput;
                 if (savedStatus === 'OUT OF ORDER') {
-                    assignmentInput = createAssignmentDropdown(localStorage.getItem(`vehicle-${index}-assignment`) || "");
+                    locationInput = createLocationDropdown(localStorage.getItem(`vehicle-${index}-location`) || "");
                 } else {
-                    assignmentInput = document.createElement('input');
-                    assignmentInput.type = 'text';
-                    assignmentInput.placeholder = 'Enter assigned site';
-                    assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
+                    locationInput = document.createElement('input');
+                    locationInput.type = 'text';
+                    locationInput.placeholder = 'Enter location';
+                    locationInput.value = localStorage.getItem(`vehicle-${index}-location`) || "";
                 }
-                assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
-                const assignmentError = document.createElement('div');
-                assignmentError.className = 'error-message';
-                assignmentCell.appendChild(assignmentInput);
-                assignmentCell.appendChild(assignmentError);
-                row.appendChild(assignmentCell);
+                locationInput.addEventListener('input', () => checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value));
+                const locationError = document.createElement('div');
+                locationError.className = 'error-message';
+                locationCell.appendChild(locationInput);
+                locationCell.appendChild(locationError);
+                row.appendChild(locationCell);
 
                 // Usage Times
                 const usageCell = document.createElement('td');
@@ -242,7 +242,7 @@
                 usageInput.type = 'text';
                 usageInput.placeholder = 'Enter usage times';
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
-                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
+                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value));
                 const usageError = document.createElement('div');
                 usageError.className = 'error-message';
                 usageCell.appendChild(usageInput);
@@ -255,32 +255,34 @@
                 notesInput.type = 'text';
                 notesInput.placeholder = 'Enter notes';
                 notesInput.value = localStorage.getItem(`vehicle-${index}-notes`) || "";
-                notesInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
+                notesInput.addEventListener('input', () => checkForChanges(index, dropdown.value, locationInput.value, usageInput.value, notesInput.value));
                 notesCell.appendChild(notesInput);
                 row.appendChild(notesCell);
 
-                // Highlight row based on saved status
-                updateRowColor(row, savedStatus);
-
                 tableBody.appendChild(row);
-            });
 
-            previousState = vehicles.map((_, index) => ({
-                status: localStorage.getItem(`vehicle-${index}-status`) || "--",
-                assignment: localStorage.getItem(`vehicle-${index}-assignment`) || "",
-                usage: localStorage.getItem(`vehicle-${index}-usage`) || "",
-                notes: localStorage.getItem(`vehicle-${index}-notes`) || ""
-            }));
+                previousState[index] = {
+                    status: savedStatus,
+                    location: localStorage.getItem(`vehicle-${index}-location`) || "",
+                    usage: localStorage.getItem(`vehicle-${index}-usage`) || "",
+                    notes: localStorage.getItem(`vehicle-${index}-notes`) || ""
+                };
+            });
         }
 
         function getTableData() {
             return Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => {
                 const cells = row.children;
+                const status = cells[1].querySelector('select').value;
+                const location = status === 'OUT OF ORDER'
+                    ? cells[3].querySelector('select').value
+                    : cells[3].querySelector('input').value;
                 return {
-                    status: cells[1].querySelector('select').value,
-                    assignment: cells[1].querySelector('select').parentElement.querySelector('input, select').value,
-                    usage: cells[3].querySelector('input').value,
-                    notes: cells[4].querySelector('input').value
+                    vehicle: cells[2].textContent,
+                    status,
+                    location,
+                    usage: cells[4].querySelector('input').value,
+                    notes: cells[5].querySelector('input').value
                 };
             });
         }
@@ -300,10 +302,10 @@
             }
         }
 
-        function checkForChanges(index, status, assignment, usage, notes) {
+        function checkForChanges(index, status, location, usage, notes) {
             const savedState = previousState[index];
             const hasChanges = savedState.status !== status ||
-                savedState.assignment !== assignment ||
+                savedState.location !== location ||
                 savedState.usage !== usage ||
                 savedState.notes !== notes;
             
@@ -312,21 +314,21 @@
             saveButton.classList.toggle('enabled', hasChanges);
         }
 
-        function saveRow(index, statusCell, assignmentInput, usageInput, notesInput, assignmentError, usageError) {
+        function saveRow(index, statusCell, locationInput, usageInput, notesInput, locationError, usageError) {
             const status = statusCell.querySelector('select').value;
-            const assignment = status === 'OUT OF ORDER'
-                ? assignmentInput.querySelector('select').value
-                : assignmentInput.value;
+            const location = status === 'OUT OF ORDER'
+                ? locationInput.querySelector('select').value
+                : locationInput.value;
             const usage = usageInput.value;
             const notes = notesInput.value;
             localStorage.setItem(`vehicle-${index}-status`, status);
-            localStorage.setItem(`vehicle-${index}-assignment`, assignment);
+            localStorage.setItem(`vehicle-${index}-location`, location);
             localStorage.setItem(`vehicle-${index}-usage`, usage);
             localStorage.setItem(`vehicle-${index}-notes`, notes);
 
             previousState[index] = {
                 status,
-                assignment,
+                location,
                 usage,
                 notes
             };
@@ -351,15 +353,15 @@
             const rows = document.querySelectorAll('#vehicle-table-body tr');
 
             rows.forEach(row => {
-                const vehicleName = row.children[2].textContent;
+                const vehicle = row.children[2].textContent;
                 const status = row.children[1].querySelector('select').value;
-                const assignment = status === 'OUT OF ORDER'
+                const location = status === 'OUT OF ORDER'
                     ? row.children[3].querySelector('select').value
                     : row.children[3].querySelector('input').value;
                 const usage = row.children[4].querySelector('input').value;
                 const notes = row.children[5].querySelector('input').value;
 
-                clipboardText += `• Vehicle: ${vehicleName}\n  Status: ${status}\n  Assignment: ${assignment}\n  Usage: ${usage}\n  Notes: ${notes}\n\n`;
+                clipboardText += `• Vehicle: ${vehicle}\n  Status: ${status}\n  Location: ${location}\n  Usage: ${usage}\n  Notes: ${notes}\n\n`;
             });
 
             navigator.clipboard.writeText(clipboardText)
