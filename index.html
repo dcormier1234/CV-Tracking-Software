@@ -358,7 +358,33 @@
             showNotification('All data cleared!', true);
         }
 
+        function copyStatusUpdate() {
+            const tableBody = document.getElementById('vehicle-table-body');
+            let clipboardText = '';
+
+            tableBody.querySelectorAll('tr').forEach(row => {
+                const vehicleName = row.children[1].textContent;
+                const status = row.querySelector('select').value;
+                const assignment = row.querySelector('input[placeholder="Enter assigned site"]').value;
+                const usage = row.querySelector('input[placeholder="Enter usage times"]').value;
+                const notes = row.querySelector('input[placeholder="Enter notes"]').value;
+
+                clipboardText += `• Vehicle: ${vehicleName}\n`;
+                clipboardText += `  Status: ${status}\n`;
+                clipboardText += `  Assignment: ${assignment}\n`;
+                clipboardText += `  Usage Times: ${usage}\n`;
+                clipboardText += `  Notes: ${notes}\n\n`;
+            });
+
+            navigator.clipboard.writeText(clipboardText).then(() => {
+                showNotification('Status copied to clipboard!');
+            }).catch(err => {
+                showNotification('Failed to copy to clipboard!', true);
+            });
+        }
+
         document.getElementById('clear-button').addEventListener('click', clearAll);
+        document.getElementById('send-status-update').addEventListener('click', copyStatusUpdate);
 
         populateTable();
     </script>
