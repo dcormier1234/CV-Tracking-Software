@@ -47,7 +47,7 @@
             color: white;
         }
         .dropdown {
-            width: 150px; /* Adjusted width */
+            width: 120px; /* Adjusted width */
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -135,7 +135,7 @@
                 <th>Vehicle Name</th>
                 <th>Site Assignment</th>
                 <th>Usage Times</th>
-                <th>Notes</th>
+                <th>Notes</th> <!-- New Notes column -->
             </tr>
         </thead>
         <tbody id="vehicle-table-body">
@@ -153,7 +153,6 @@
         ];
 
         const statuses = ["--", "AVAILABLE", "IN USE", "OUT OF ORDER"];
-        const sites = ["Shediac Road Auto", "Goguen Tire", "Trim-Line", "OTHER"];
         let previousState = [];
 
         function createDropdown(selectedStatus) {
@@ -171,14 +170,15 @@
             return dropdown;
         }
 
-        function createSiteDropdown(selectedSite) {
+        function createAssignmentDropdown(selectedAssignment) {
+            const assignments = ['Shediac Road Auto', 'Goguen Tire', 'Trim-Line', 'OTHER'];
             const dropdown = document.createElement('select');
             dropdown.className = 'dropdown';
-            sites.forEach(site => {
+            assignments.forEach(assignment => {
                 const option = document.createElement('option');
-                option.value = site;
-                option.textContent = site;
-                if (site === selectedSite) {
+                option.value = assignment;
+                option.textContent = assignment;
+                if (assignment === selectedAssignment) {
                     option.selected = true;
                 }
                 dropdown.appendChild(option);
@@ -208,7 +208,6 @@
                 const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
-                    updateSiteAssignmentField(row, dropdown.value);
                     checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
                 });
                 statusCell.appendChild(dropdown);
@@ -221,10 +220,15 @@
 
                 // Site Assignment
                 const assignmentCell = document.createElement('td');
-                const assignmentInput = document.createElement('input');
-                assignmentInput.type = 'text';
-                assignmentInput.placeholder = 'Enter assigned site';
-                assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
+                let assignmentInput;
+                if (savedStatus === 'OUT OF ORDER') {
+                    assignmentInput = createAssignmentDropdown(localStorage.getItem(`vehicle-${index}-assignment`) || "");
+                } else {
+                    assignmentInput = document.createElement('input');
+                    assignmentInput.type = 'text';
+                    assignmentInput.placeholder = 'Enter assigned site';
+                    assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
+                }
                 assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
                 const assignmentError = document.createElement('div');
                 assignmentError.className = 'error-message';
@@ -257,110 +261,113 @@
 
                 // Highlight row based on saved status
                 updateRowColor(row, savedStatus);
-                updateSiteAssignmentField(row, savedStatus);
 
                 tableBody.appendChild(row);
+            });
+
+            previousState = Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => {
+                const cells = row.children;
+                return {
+                    status: cells[1].querySelector('select').value,
+                    assignment: cells[3].querySelector('input, select').value,
+                    usage: cells[4].querySelector('input').value,
+                    notes: cells[5].querySelector('input').value
+                };
             });
         }
 
         function updateRowColor(row, status) {
-            row.className = '';
-            if (status === 'AVAILABLE') {
-                row.classList.add('status-available');
-            } else if (status === 'IN USE') {
-                row.classList.add('status-in-use');
-            } else if (status === 'OUT OF ORDER') {
-                row.classList.add('status-out-of-order');
-            }
-        }
-
-        function updateSiteAssignmentField(row, status) {
-            const assignmentCell = row.children[3];
-            assignmentCell.innerHTML = ''; // Clear existing content
-            if (status === 'OUT OF ORDER') {
-                const siteDropdown = createSiteDropdown(localStorage.getItem(`vehicle-${row.rowIndex}-assignment`) || "");
-                assignmentCell.appendChild(siteDropdown);
-            } else {
-                const assignmentInput = document.createElement('input');
-                assignmentInput.type = 'text';
-                assignmentInput.placeholder = 'Enter assigned site';
-                assignmentInput.value = localStorage.getItem(`vehicle-${row.rowIndex}-assignment`) || "";
-                assignmentCell.appendChild(assignmentInput);
+            row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
+            switch (status) {
+                case 'AVAILABLE':
+                    row.classList.add('status-available');
+                    break;
+                case 'IN USE':
+                    row.classList.add('status-in-use');
+                    break;
+                case 'OUT OF ORDER':
+                    row.classList.add('status-out-of-order');
+                    break;
             }
         }
 
         function checkForChanges(index, status, assignment, usage, notes) {
+            const savedState = previousState[index];
+            const hasChanges = savedState.status !== status ||
+                savedState.assignment !== assignment ||
+                savedState.usage !== usage ||
+                savedState.notes !== notes;
+            
             const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
-            if (previousState[index] !== `${status}${assignment}${usage}${notes}`) {
-                saveButton.disabled = false;
-                saveButton.classList.add('enabled');
-            } else {
-                saveButton.disabled = true;
-                saveButton.classList.remove('enabled');
-            }
+            saveButton.disabled = !hasChanges;
+            saveButton.classList.toggle('enabled', hasChanges);
         }
 
         function saveRow(index, statusCell, assignmentInput, usageInput, notesInput, assignmentError, usageError) {
             const status = statusCell.querySelector('select').value;
-            const assignment = assignmentInput.value;
+            const assignment = status === 'OUT OF ORDER'
+                ? assignmentInput.querySelector('select').value
+                : assignmentInput.value;
             const usage = usageInput.value;
             const notes = notesInput.value;
-            const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
-            
             localStorage.setItem(`vehicle-${index}-status`, status);
             localStorage.setItem(`vehicle-${index}-assignment`, assignment);
             localStorage.setItem(`vehicle-${index}-usage`, usage);
             localStorage.setItem(`vehicle-${index}-notes`, notes);
-            
-            previousState[index] = `${status}${assignment}${usage}${notes}`;
+
+            previousState[index] = {
+                status,
+                assignment,
+                usage,
+                notes
+            };
+
+            const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
             saveButton.disabled = true;
             saveButton.classList.remove('enabled');
-            showNotification('Status updated successfully');
-        }
-
-        function showNotification(message, isError = false) {
-            const notification = document.getElementById('clipboard-notification');
-            notification.textContent = message;
-            notification.classList.add(isError ? 'error' : '');
-            notification.classList.add('fade-out');
-            notification.style.display = 'block';
-            setTimeout(() => notification.style.display = 'none', 2000);
         }
 
         document.getElementById('clear-button').addEventListener('click', () => {
-            const rows = document.querySelectorAll('#vehicle-table-body tr');
-            rows.forEach(row => {
-                const statusDropdown = row.querySelector('td:nth-child(2) select');
-                statusDropdown.value = '--';
-                updateRowColor(row, '--');
-                updateSiteAssignmentField(row, '--');
-                row.querySelectorAll('input').forEach(input => input.value = '');
-                const saveButton = row.querySelector('.save-button');
-                saveButton.disabled = true;
-                saveButton.classList.remove('enabled');
-            });
-            showNotification('All fields cleared');
-        });
-
-        document.getElementById('undo-button').addEventListener('click', () => {
-            populateTable();
-            showNotification('Changes reverted', true);
+            if (confirm('Are you sure you want to clear all data?')) {
+                document.querySelectorAll('#vehicle-table-body tr').forEach(row => {
+                    row.querySelector('select').value = '--';
+                    row.querySelector('input[type="text"]').value = '';
+                    row.querySelector('input').value = '';
+                });
+                previousState = [];
+            }
         });
 
         document.getElementById('send-status-update').addEventListener('click', () => {
-            window.open('https://outlook.office.com/mail/', '_blank');
+            let clipboardText = '';
+            const rows = document.querySelectorAll('#vehicle-table-body tr');
+
+            rows.forEach(row => {
+                const vehicleName = row.children[2].textContent;
+                const status = row.children[1].querySelector('select').value;
+                const assignment = status === 'OUT OF ORDER'
+                    ? row.children[3].querySelector('select').value
+                    : row.children[3].querySelector('input').value;
+                const usage = row.children[4].querySelector('input').value;
+                const notes = row.children[5].querySelector('input').value;
+
+                clipboardText += `• Vehicle: ${vehicleName}\n  Status: ${status}\n  Assignment: ${assignment}\n  Usage: ${usage}\n  Notes: ${notes}\n\n`;
+            });
+
+            navigator.clipboard.writeText(clipboardText)
+                .then(() => showNotification('Status update copied to clipboard', false))
+                .catch(err => showNotification('Failed to copy status update to clipboard', true));
         });
 
-        let initialized = false;
-        function initialize() {
-            if (!initialized) {
-                previousState = Array(vehicles.length).fill('');
-                populateTable();
-                initialized = true;
-            }
+        function showNotification(message, isError) {
+            const notification = document.getElementById('clipboard-notification');
+            notification.textContent = message;
+            notification.classList.toggle('error', isError);
+            notification.classList.add('fade-out');
+            setTimeout(() => notification.style.display = 'none', 2000);
         }
 
-        initialize();
+        populateTable();
     </script>
 </body>
 </html>
