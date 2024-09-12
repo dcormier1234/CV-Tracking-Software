@@ -47,7 +47,7 @@
             color: white;
         }
         .dropdown {
-            width: 150px; /* Adjusted width */
+            width: 120px; /* Adjusted width */
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -135,7 +135,7 @@
                 <th>Vehicle Name</th>
                 <th>Site Assignment</th>
                 <th>Usage Times</th>
-                <th>Notes</th> <!-- Added Notes column -->
+                <th>Notes</th> <!-- New column header -->
             </tr>
         </thead>
         <tbody id="vehicle-table-body">
@@ -155,15 +155,14 @@
         const statuses = ["--", "AVAILABLE", "IN USE", "OUT OF ORDER"];
         let previousState = [];
 
-        function createDropdown(selectedValue, isSiteAssignment) {
+        function createDropdown(selectedStatus) {
             const dropdown = document.createElement('select');
             dropdown.className = 'dropdown';
-            const options = isSiteAssignment ? ["Shediac Road Auto", "Goguen Tire", "Trim-Line", "OTHER"] : statuses;
-            options.forEach(optionText => {
+            statuses.forEach(status => {
                 const option = document.createElement('option');
-                option.value = optionText;
-                option.textContent = optionText;
-                if (optionText === selectedValue) {
+                option.value = status;
+                option.textContent = status;
+                if (status === selectedStatus) {
                     option.selected = true;
                 }
                 dropdown.appendChild(option);
@@ -190,14 +189,9 @@
                 // Status
                 const statusCell = document.createElement('td');
                 const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "--";
-                const dropdown = createDropdown(savedStatus, false);
+                const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
-                    if (dropdown.value === "OUT OF ORDER") {
-                        assignmentInput.replaceWith(createDropdown(localStorage.getItem(`vehicle-${index}-assignment`) || "", true));
-                    } else {
-                        assignmentInput.replaceWith(createAssignmentInput(localStorage.getItem(`vehicle-${index}-assignment`) || ""));
-                    }
                     checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
                 });
                 statusCell.appendChild(dropdown);
@@ -210,12 +204,10 @@
 
                 // Site Assignment
                 const assignmentCell = document.createElement('td');
-                let assignmentInput;
-                if (savedStatus === 'OUT OF ORDER') {
-                    assignmentInput = createDropdown(localStorage.getItem(`vehicle-${index}-assignment`) || "", true);
-                } else {
-                    assignmentInput = createAssignmentInput(localStorage.getItem(`vehicle-${index}-assignment`) || "");
-                }
+                const assignmentInput = document.createElement('input');
+                assignmentInput.type = 'text';
+                assignmentInput.placeholder = 'Enter assigned site';
+                assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
                 assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
                 const assignmentError = document.createElement('div');
                 assignmentError.className = 'error-message';
@@ -243,7 +235,10 @@
                 notesInput.placeholder = 'Enter notes';
                 notesInput.value = localStorage.getItem(`vehicle-${index}-notes`) || "";
                 notesInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
+                const notesError = document.createElement('div');
+                notesError.className = 'error-message';
                 notesCell.appendChild(notesInput);
+                notesCell.appendChild(notesError);
                 row.appendChild(notesCell);
 
                 // Highlight row based on saved status
@@ -251,169 +246,120 @@
 
                 tableBody.appendChild(row);
             });
-        }
 
-        function createAssignmentInput(value) {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = 'Enter assigned site';
-            input.value = value;
-            return input;
+            previousState = Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => ({
+                status: row.querySelector('select').value,
+                assignment: row.querySelector('input[placeholder="Enter assigned site"]').value,
+                usage: row.querySelector('input[placeholder="Enter usage times"]').value,
+                notes: row.querySelector('input[placeholder="Enter notes"]').value
+            }));
         }
 
         function updateRowColor(row, status) {
             row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
-            if (status === "AVAILABLE") {
-                row.classList.add('status-available');
-            } else if (status === "IN USE") {
-                row.classList.add('status-in-use');
-            } else if (status === "OUT OF ORDER") {
-                row.classList.add('status-out-of-order');
+            switch (status) {
+                case 'AVAILABLE':
+                    row.classList.add('status-available');
+                    break;
+                case 'IN USE':
+                    row.classList.add('status-in-use');
+                    break;
+                case 'OUT OF ORDER':
+                    row.classList.add('status-out-of-order');
+                    break;
+                default:
+                    break;
             }
         }
 
         function checkForChanges(index, status, assignment, usage, notes) {
-            const savedStatus = localStorage.getItem(`vehicle-${index}-status`);
-            const savedAssignment = localStorage.getItem(`vehicle-${index}-assignment`);
-            const savedUsage = localStorage.getItem(`vehicle-${index}-usage`);
-            const savedNotes = localStorage.getItem(`vehicle-${index}-notes`);
+            const hasChanges = previousState[index] &&
+                (previousState[index].status !== status ||
+                 previousState[index].assignment !== assignment ||
+                 previousState[index].usage !== usage ||
+                 previousState[index].notes !== notes);
 
             const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
-            saveButton.disabled = status === savedStatus && assignment === savedAssignment && usage === savedUsage && notes === savedNotes;
-            if (!saveButton.disabled) {
+            if (hasChanges) {
                 saveButton.classList.add('enabled');
+                saveButton.disabled = false;
             } else {
                 saveButton.classList.remove('enabled');
+                saveButton.disabled = true;
             }
         }
 
         function saveRow(index, statusCell, assignmentInput, usageInput, notesInput, assignmentError, usageError) {
             const status = statusCell.querySelector('select').value;
-            const assignment = assignmentInput.value;
-            const usage = usageInput.value;
-            const notes = notesInput.value;
+            const assignment = assignmentInput.value.trim();
+            const usage = usageInput.value.trim();
+            const notes = notesInput.value.trim();
 
-            // Save to localStorage
+            if (!assignment) {
+                assignmentError.textContent = 'Assignment is required';
+                return;
+            } else {
+                assignmentError.textContent = '';
+            }
+
+            if (!usage) {
+                usageError.textContent = 'Usage times are required';
+                return;
+            } else {
+                usageError.textContent = '';
+            }
+
+            // Save to local storage
             localStorage.setItem(`vehicle-${index}-status`, status);
             localStorage.setItem(`vehicle-${index}-assignment`, assignment);
             localStorage.setItem(`vehicle-${index}-usage`, usage);
             localStorage.setItem(`vehicle-${index}-notes`, notes);
 
-            showNotification('Status updated successfully!');
-            // Mark save button as disabled again
+            // Update previous state
+            previousState[index] = { status, assignment, usage, notes };
+
+            // Disable save button
             const saveButton = document.querySelector(`#vehicle-table-body tr:nth-child(${index + 1}) .save-button`);
-            saveButton.disabled = true;
             saveButton.classList.remove('enabled');
+            saveButton.disabled = true;
+
+            // Show notification
+            showNotification('Status saved!');
         }
 
         function showNotification(message, isError = false) {
             const notification = document.getElementById('clipboard-notification');
             notification.textContent = message;
-            notification.className = `notification ${isError ? 'error' : ''}`;
+            notification.classList.toggle('error', isError);
             notification.style.display = 'block';
-            setTimeout(() => notification.classList.add('fade-out'), 100);
-            setTimeout(() => notification.style.display = 'none', 2100);
+            setTimeout(() => {
+                notification.classList.add('fade-out');
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                    notification.classList.remove('fade-out');
+                }, 2000);
+            }, 2000);
         }
 
-        function handleClearAll() {
-            if (confirm('Are you sure you want to clear all data?')) {
-                localStorage.clear();
-                document.getElementById('vehicle-table-body').innerHTML = '';
-                populateTable();
-            }
-        }
-
-        function handleUndo() {
-            document.getElementById('vehicle-table-body').innerHTML = '';
-            previousState.forEach(rowData => {
-                const row = document.createElement('tr');
-
-                // Save Button
-                const actionsCell = document.createElement('td');
-                actionsCell.className = 'actions-cell';
-                const saveButton = document.createElement('button');
-                saveButton.textContent = 'Save';
-                saveButton.className = 'save-button';
-                saveButton.disabled = true;
-                saveButton.onclick = () => saveRow(rowData.index, statusCell, assignmentInput, usageInput, notesInput, assignmentError, usageError);
-                actionsCell.appendChild(saveButton);
-                row.appendChild(actionsCell);
-
-                // Status
-                const statusCell = document.createElement('td');
-                const dropdown = createDropdown(rowData.status, false);
-                dropdown.addEventListener('change', () => {
-                    updateRowColor(row, dropdown.value);
-                    if (dropdown.value === "OUT OF ORDER") {
-                        assignmentInput.replaceWith(createDropdown(rowData.assignment, true));
-                    } else {
-                        assignmentInput.replaceWith(createAssignmentInput(rowData.assignment));
-                    }
-                    checkForChanges(rowData.index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
-                });
-                statusCell.appendChild(dropdown);
-                row.appendChild(statusCell);
-
-                // Vehicle Name
-                const vehicleCell = document.createElement('td');
-                vehicleCell.textContent = rowData.vehicle;
-                row.appendChild(vehicleCell);
-
-                // Site Assignment
-                const assignmentCell = document.createElement('td');
-                let assignmentInput;
-                if (rowData.status === 'OUT OF ORDER') {
-                    assignmentInput = createDropdown(rowData.assignment, true);
-                } else {
-                    assignmentInput = createAssignmentInput(rowData.assignment);
-                }
-                assignmentInput.addEventListener('input', () => checkForChanges(rowData.index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
-                const assignmentError = document.createElement('div');
-                assignmentError.className = 'error-message';
-                assignmentCell.appendChild(assignmentInput);
-                assignmentCell.appendChild(assignmentError);
-                row.appendChild(assignmentCell);
-
-                // Usage Times
-                const usageCell = document.createElement('td');
-                const usageInput = document.createElement('input');
-                usageInput.type = 'text';
-                usageInput.placeholder = 'Enter usage times';
-                usageInput.value = rowData.usage;
-                usageInput.addEventListener('input', () => checkForChanges(rowData.index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
-                const usageError = document.createElement('div');
-                usageError.className = 'error-message';
-                usageCell.appendChild(usageInput);
-                usageCell.appendChild(usageError);
-                row.appendChild(usageCell);
-
-                // Notes
-                const notesCell = document.createElement('td');
-                const notesInput = document.createElement('input');
-                notesInput.type = 'text';
-                notesInput.placeholder = 'Enter notes';
-                notesInput.value = rowData.notes;
-                notesInput.addEventListener('input', () => checkForChanges(rowData.index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
-                notesCell.appendChild(notesInput);
-                row.appendChild(notesCell);
-
-                // Highlight row based on saved status
-                updateRowColor(row, rowData.status);
-
-                document.getElementById('vehicle-table-body').appendChild(row);
+        function clearAll() {
+            const tableBody = document.getElementById('vehicle-table-body');
+            tableBody.querySelectorAll('tr').forEach((row, index) => {
+                row.querySelector('select').value = '--';
+                row.querySelector('input[placeholder="Enter assigned site"]').value = '';
+                row.querySelector('input[placeholder="Enter usage times"]').value = '';
+                row.querySelector('input[placeholder="Enter notes"]').value = '';
+                updateRowColor(row, '--');
+                localStorage.removeItem(`vehicle-${index}-status`);
+                localStorage.removeItem(`vehicle-${index}-assignment`);
+                localStorage.removeItem(`vehicle-${index}-usage`);
+                localStorage.removeItem(`vehicle-${index}-notes`);
             });
+            previousState = [];
+            showNotification('All data cleared!', true);
         }
 
-        function handleSendStatusUpdate() {
-            // Placeholder for actual send functionality
-            alert('Sending status update...');
-        }
+        document.getElementById('clear-button').addEventListener('click', clearAll);
 
-        document.getElementById('clear-button').addEventListener('click', handleClearAll);
-        document.getElementById('undo-button').addEventListener('click', handleUndo);
-        document.getElementById('send-status-update').addEventListener('click', handleSendStatusUpdate);
-
-        // Initialize table
         populateTable();
     </script>
 </body>
