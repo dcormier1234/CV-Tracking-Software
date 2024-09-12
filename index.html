@@ -5,13 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fleet Management</title>
     <style>
-        /* ... (your existing styles) ... */
-        .note-input {
-            width: 200px;
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .title {
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+            font-size: 28px;
+            color: #000;
+            text-align: center;
+        }
+        .subtitle {
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #dc3545; /* Red color */
+            color: white;
+        }
+        .dropdown {
+            width: 120px; /* Adjusted width */
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            display: none; /* Hidden by default */
+        }
+        input {
+            width: 150px; /* Adjusted width */
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .save-button {
+            background-color: gray;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: not-allowed;
+        }
+        .save-button.enabled {
+            background-color: #28a745;
+            cursor: pointer;
+        }
+        .save-button:hover {
+            background-color: #218838;
+        }
+        .actions-cell {
+            text-align: center;
+        }
+        .status-available {
+            background-color: #d4edda; /* Light green */
+        }
+        .status-in-use {
+            background-color: #fff3cd; /* Light yellow */
+        }
+        .status-out-of-order {
+            background-color: #f8d7da; /* Light red */
+        }
+        .error-message {
+            color: red;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .notification {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+        .notification.error {
+            background-color: #dc3545;
+        }
+        .notification.fade-out {
+            animation: fadeOut 2s forwards;
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .button-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .button-container button {
+            margin: 0 10px;
         }
     </style>
 </head>
@@ -30,7 +135,6 @@
                 <th>Vehicle Name</th>
                 <th>Site Assignment</th>
                 <th>Usage Times</th>
-                <th class="note-header" style="display:none;">Note</th> <!-- Hidden Note Column -->
             </tr>
         </thead>
         <tbody id="vehicle-table-body">
@@ -50,17 +154,17 @@
         const statuses = ["--", "AVAILABLE", "IN USE", "OUT OF ORDER"];
         let previousState = [];
 
-        function createDropdown(options, selectedOption) {
+        function createDropdown(selectedStatus) {
             const dropdown = document.createElement('select');
             dropdown.className = 'dropdown';
-            options.forEach(option => {
-                const optionElement = document.createElement('option');
-                optionElement.value = option;
-                optionElement.textContent = option;
-                if (option === selectedOption) {
-                    optionElement.selected = true;
+            statuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status;
+                if (status === selectedStatus) {
+                    option.selected = true;
                 }
-                dropdown.appendChild(optionElement);
+                dropdown.appendChild(option);
             });
             return dropdown;
         }
@@ -77,18 +181,17 @@
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
                 saveButton.disabled = true;
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, noteInput);
+                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError);
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
                 // Status
                 const statusCell = document.createElement('td');
                 const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "--";
-                const dropdown = createDropdown(statuses, savedStatus);
+                const dropdown = createDropdown(savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
-                    toggleNoteColumn(row, dropdown.value);
-                    checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value);
+                    checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value);
                 });
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
@@ -104,8 +207,11 @@
                 assignmentInput.type = 'text';
                 assignmentInput.placeholder = 'Enter assigned site';
                 assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
-                assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value));
+                assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value));
+                const assignmentError = document.createElement('div');
+                assignmentError.className = 'error-message';
                 assignmentCell.appendChild(assignmentInput);
+                assignmentCell.appendChild(assignmentError);
                 row.appendChild(assignmentCell);
 
                 // Usage Times
@@ -114,22 +220,15 @@
                 usageInput.type = 'text';
                 usageInput.placeholder = 'Enter usage times';
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
-                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value));
+                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value));
+                const usageError = document.createElement('div');
+                usageError.className = 'error-message';
                 usageCell.appendChild(usageInput);
+                usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
 
-                // Note Field (Hidden by default)
-                const noteCell = document.createElement('td');
-                const noteInput = document.createElement('input');
-                noteInput.type = 'text';
-                noteInput.className = 'note-input'; // Initially hidden
-                noteInput.placeholder = 'Enter reason vehicle is out of order';
-                noteCell.appendChild(noteInput);
-                row.appendChild(noteCell);
-
-                // Highlight row and toggle note field based on saved status
+                // Highlight row based on saved status
                 updateRowColor(row, savedStatus);
-                toggleNoteColumn(row, savedStatus);
 
                 tableBody.appendChild(row);
             });
@@ -138,7 +237,6 @@
                 status: row.querySelector('select').value,
                 assignment: row.querySelector('input[placeholder="Enter assigned site"]').value,
                 usage: row.querySelector('input[placeholder="Enter usage times"]').value,
-                note: row.querySelector('.note-input') ? row.querySelector('.note-input').value : ""
             }));
         }
 
@@ -150,28 +248,16 @@
                 row.classList.add('status-in-use');
             } else if (status === 'OUT OF ORDER') {
                 row.classList.add('status-out-of-order');
+            } else if (status === '--') {
+                row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
             }
         }
 
-        function toggleNoteColumn(row, status) {
-            const noteHeader = document.querySelector('.note-header');
-            const noteInput = row.querySelector('.note-input');
-
-            if (status === 'OUT OF ORDER') {
-                noteInput.style.display = 'block'; // Show the note field
-                noteHeader.style.display = 'table-cell'; // Show the Note column header
-            } else {
-                noteInput.style.display = 'none'; // Hide the note field
-                noteHeader.style.display = 'none'; // Hide the Note column header
-            }
-        }
-
-        function checkForChanges(index, status, assignment, usage, note) {
+        function checkForChanges(index, status, assignment, usage) {
             const saveButton = document.querySelectorAll('.save-button')[index];
             if (status !== previousState[index].status || 
                 assignment !== previousState[index].assignment || 
-                usage !== previousState[index].usage ||
-                note !== previousState[index].note) {
+                usage !== previousState[index].usage) {
                 saveButton.classList.add('enabled');
                 saveButton.disabled = false;
             } else {
@@ -180,28 +266,90 @@
             }
         }
 
-        function saveRow(index, statusCell, assignmentInput, usageInput, noteInput) {
+        function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError) {
             const saveButton = document.querySelectorAll('.save-button')[index];
             const status = statusCell.querySelector('select').value;
             const assignment = assignmentInput.value;
             const usage = usageInput.value;
-            const note = noteInput.value;
 
             localStorage.setItem(`vehicle-${index}-status`, status);
             localStorage.setItem(`vehicle-${index}-assignment`, assignment);
             localStorage.setItem(`vehicle-${index}-usage`, usage);
-            if (status === 'OUT OF ORDER') {
-                localStorage.setItem(`vehicle-${index}-note`, note);
-            }
 
-            previousState[index] = { status, assignment, usage, note };
+            previousState[index] = { status, assignment, usage };
             saveButton.classList.remove('enabled');
             saveButton.disabled = true;
 
-            showClipboardNotification('Status update saved!');
+            showNotification('Status update copied to clipboard', 'success');
         }
 
-        document.addEventListener('DOMContentLoaded', populateTable);
+        function clearAll() {
+            const rows = document.querySelectorAll('#vehicle-table-body tr');
+            rows.forEach(row => {
+                const dropdown = row.querySelector('select');
+                const assignmentInput = row.querySelector('input[placeholder="Enter assigned site"]');
+                const usageInput = row.querySelector('input[placeholder="Enter usage times"]');
+                
+                dropdown.value = '--';
+                assignmentInput.value = '';
+                usageInput.value = '';
+                updateRowColor(row, '--');
+            });
+
+            previousState = Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => ({
+                status: '--',
+                assignment: '',
+                usage: '',
+            }));
+        }
+
+        function undoClearAll() {
+            document.querySelectorAll('#vehicle-table-body tr').forEach((row, index) => {
+                const statusCell = row.querySelector('select');
+                const assignmentInput = row.querySelector('input[placeholder="Enter assigned site"]');
+                const usageInput = row.querySelector('input[placeholder="Enter usage times"]');
+
+                statusCell.value = previousState[index].status;
+                assignmentInput.value = previousState[index].assignment;
+                usageInput.value = previousState[index].usage;
+
+                updateRowColor(row, statusCell.value);
+            });
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('clipboard-notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} fade-out`;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 2000);
+        }
+
+        document.getElementById('clear-button').addEventListener('click', () => {
+            undoClearAll(); // Undo action is now added to the Clear All button
+            clearAll();
+        });
+
+        document.getElementById('undo-button').addEventListener('click', undoClearAll);
+
+        document.getElementById('send-status-update').addEventListener('click', () => {
+            const rows = document.querySelectorAll('#vehicle-table-body tr');
+            let clipboardText = '';
+            rows.forEach(row => {
+                const vehicleName = row.children[2].textContent;
+                const status = row.children[1].querySelector('select').value;
+                const assignment = row.children[3].querySelector('input').value;
+                const usage = row.children[4].querySelector('input').value;
+                clipboardText += `• Vehicle: ${vehicleName}\n  Status: ${status}\n  Assignment: ${assignment}\n  Usage: ${usage}\n\n`;
+            });
+            navigator.clipboard.writeText(clipboardText);
+            showNotification('Status update copied to clipboard', 'success');
+        });
+
+        window.onload = populateTable;
     </script>
 </body>
 </html>
+
