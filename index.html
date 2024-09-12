@@ -265,13 +265,22 @@
                 tableBody.appendChild(row);
             });
 
-            previousState = Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => {
+            previousState = vehicles.map((_, index) => ({
+                status: localStorage.getItem(`vehicle-${index}-status`) || "--",
+                assignment: localStorage.getItem(`vehicle-${index}-assignment`) || "",
+                usage: localStorage.getItem(`vehicle-${index}-usage`) || "",
+                notes: localStorage.getItem(`vehicle-${index}-notes`) || ""
+            }));
+        }
+
+        function getTableData() {
+            return Array.from(document.querySelectorAll('#vehicle-table-body tr')).map(row => {
                 const cells = row.children;
                 return {
                     status: cells[1].querySelector('select').value,
-                    assignment: cells[3].querySelector('input, select').value,
-                    usage: cells[4].querySelector('input').value,
-                    notes: cells[5].querySelector('input').value
+                    assignment: cells[1].querySelector('select').parentElement.querySelector('input, select').value,
+                    usage: cells[3].querySelector('input').value,
+                    notes: cells[4].querySelector('input').value
                 };
             });
         }
@@ -332,7 +341,6 @@
                 document.querySelectorAll('#vehicle-table-body tr').forEach(row => {
                     row.querySelector('select').value = '--';
                     row.querySelector('input[type="text"]').value = '';
-                    row.querySelector('input').value = '';
                 });
                 previousState = [];
             }
