@@ -5,122 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fleet Management</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            font-size: 24px;
-            font-weight: bold;
-            color: #000;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .title {
-            font-weight: bold;
-            font-family: Arial, sans-serif;
-            font-size: 28px;
-            color: #000;
-            text-align: center;
-        }
-        .subtitle {
-            font-family: Arial, sans-serif;
-            font-size: 18px;
-            color: #666;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }
-        th {
-            background-color: #dc3545; /* Red color */
-            color: white;
-        }
-        .dropdown {
-            width: 120px; /* Adjusted width */
+        /* ... (your existing styles) ... */
+        .note-input {
+            width: 200px;
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-        }
-        input, textarea {
-            width: 150px; /* Adjusted width */
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .save-button {
-            background-color: gray;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: not-allowed;
-        }
-        .save-button.enabled {
-            background-color: #28a745;
-            cursor: pointer;
-        }
-        .save-button:hover {
-            background-color: #218838;
-        }
-        .actions-cell {
-            text-align: center;
-        }
-        .status-available {
-            background-color: #d4edda; /* Light green */
-        }
-        .status-in-use {
-            background-color: #fff3cd; /* Light yellow */
-        }
-        .status-out-of-order {
-            background-color: #f8d7da; /* Light red */
-        }
-        .error-message {
-            color: red;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-        .notification {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background-color: #28a745;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            display: none;
-            z-index: 1000;
-        }
-        .notification.error {
-            background-color: #dc3545;
-        }
-        .notification.fade-out {
-            animation: fadeOut 2s forwards;
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-        .button-container {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .button-container button {
-            margin: 0 10px;
-        }
-        .notes-column textarea {
-            width: 100%;
-            height: 40px;
+            display: none; /* Hidden by default */
         }
     </style>
 </head>
@@ -139,7 +30,7 @@
                 <th>Vehicle Name</th>
                 <th>Site Assignment</th>
                 <th>Usage Times</th>
-                <th>Notes (Out of Order Reason)</th>
+                <th class="note-header" style="display:none;">Note</th> <!-- Hidden Note Column -->
             </tr>
         </thead>
         <tbody id="vehicle-table-body">
@@ -157,20 +48,20 @@
         ];
 
         const statuses = ["--", "AVAILABLE", "IN USE", "OUT OF ORDER"];
-        const siteOptions = ["SRA", "TrimLine", "Goguen Tires", "OTHER"];
+        const siteAssignments = ["SRA", "TrimLine", "Goguen Tires", "OTHER"];
         let previousState = [];
 
-        function createDropdown(selectedStatus, options, className = 'dropdown') {
+        function createDropdown(options, selectedOption) {
             const dropdown = document.createElement('select');
-            dropdown.className = className;
+            dropdown.className = 'dropdown';
             options.forEach(option => {
-                const dropdownOption = document.createElement('option');
-                dropdownOption.value = option;
-                dropdownOption.textContent = option;
-                if (option === selectedStatus) {
-                    dropdownOption.selected = true;
+                const optionElement = document.createElement('option');
+                optionElement.value = option;
+                optionElement.textContent = option;
+                if (option === selectedOption) {
+                    optionElement.selected = true;
                 }
-                dropdown.appendChild(dropdownOption);
+                dropdown.appendChild(optionElement);
             });
             return dropdown;
         }
@@ -187,18 +78,18 @@
                 saveButton.textContent = 'Save';
                 saveButton.className = 'save-button';
                 saveButton.disabled = true;
-                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, notesInput);
+                saveButton.onclick = () => saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, noteInput);
                 actionsCell.appendChild(saveButton);
                 row.appendChild(actionsCell);
 
                 // Status
                 const statusCell = document.createElement('td');
                 const savedStatus = localStorage.getItem(`vehicle-${index}-status`) || "--";
-                const dropdown = createDropdown(savedStatus, statuses);
+                const dropdown = createDropdown(statuses, savedStatus);
                 dropdown.addEventListener('change', () => {
                     updateRowColor(row, dropdown.value);
-                    checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value);
-                    toggleAssignmentAndNotes(statusCell, assignmentCell, notesCell, dropdown.value, assignmentInput);
+                    toggleNoteColumn(row, dropdown.value);
+                    checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value);
                 });
                 statusCell.appendChild(dropdown);
                 row.appendChild(statusCell);
@@ -214,8 +105,11 @@
                 assignmentInput.type = 'text';
                 assignmentInput.placeholder = 'Enter assigned site';
                 assignmentInput.value = localStorage.getItem(`vehicle-${index}-assignment`) || "";
-                assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
+                assignmentInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value));
+                const assignmentError = document.createElement('div');
+                assignmentError.className = 'error-message';
                 assignmentCell.appendChild(assignmentInput);
+                assignmentCell.appendChild(assignmentError);
                 row.appendChild(assignmentCell);
 
                 // Usage Times
@@ -224,23 +118,25 @@
                 usageInput.type = 'text';
                 usageInput.placeholder = 'Enter usage times';
                 usageInput.value = localStorage.getItem(`vehicle-${index}-usage`) || "";
-                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
+                usageInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, noteInput.value));
+                const usageError = document.createElement('div');
+                usageError.className = 'error-message';
                 usageCell.appendChild(usageInput);
+                usageCell.appendChild(usageError);
                 row.appendChild(usageCell);
 
-                // Notes (Out of Order Reason)
-                const notesCell = document.createElement('td');
-                const notesInput = document.createElement('textarea');
-                notesInput.placeholder = 'Enter reason if Out of Order';
-                notesInput.value = localStorage.getItem(`vehicle-${index}-notes`) || "";
-                notesInput.addEventListener('input', () => checkForChanges(index, dropdown.value, assignmentInput.value, usageInput.value, notesInput.value));
-                notesCell.className = 'notes-column';
-                notesCell.appendChild(notesInput);
-                row.appendChild(notesCell);
+                // Note Field (Hidden by default)
+                const noteCell = document.createElement('td');
+                const noteInput = document.createElement('input');
+                noteInput.type = 'text';
+                noteInput.className = 'note-input'; // Initially hidden
+                noteInput.placeholder = 'Enter reason vehicle is out of order';
+                noteCell.appendChild(noteInput);
+                row.appendChild(noteCell);
 
-                // Highlight row based on saved status
+                // Highlight row and toggle note field based on saved status
                 updateRowColor(row, savedStatus);
-                toggleAssignmentAndNotes(statusCell, assignmentCell, notesCell, savedStatus, assignmentInput);
+                toggleNoteColumn(row, savedStatus);
 
                 tableBody.appendChild(row);
             });
@@ -249,43 +145,48 @@
                 status: row.querySelector('select').value,
                 assignment: row.querySelector('input[placeholder="Enter assigned site"]').value,
                 usage: row.querySelector('input[placeholder="Enter usage times"]').value,
-                notes: row.querySelector('textarea').value
+                note: row.querySelector('.note-input') ? row.querySelector('.note-input').value : ""
             }));
         }
 
         function updateRowColor(row, status) {
             row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
-            if (status === "AVAILABLE") {
+            if (status === 'AVAILABLE') {
                 row.classList.add('status-available');
-            } else if (status === "IN USE") {
+            } else if (status === 'IN USE') {
                 row.classList.add('status-in-use');
-            } else if (status === "OUT OF ORDER") {
+            } else if (status === 'OUT OF ORDER') {
                 row.classList.add('status-out-of-order');
+            } else if (status === '--') {
+                row.classList.remove('status-available', 'status-in-use', 'status-out-of-order');
             }
         }
 
-        function toggleAssignmentAndNotes(statusCell, assignmentCell, notesCell, status, assignmentInput) {
+        function toggleNoteColumn(row, status) {
+            const noteHeader = document.querySelector('.note-header');
+            const noteInput = row.querySelector('.note-input');
+            const assignmentInput = row.querySelector('input[placeholder="Enter assigned site"]');
+
             if (status === 'OUT OF ORDER') {
-                const siteDropdown = createDropdown('', siteOptions, 'site-dropdown');
-                siteDropdown.addEventListener('change', () => {
-                    assignmentInput.value = siteDropdown.value;
-                    checkForChanges(statusCell.parentElement.rowIndex, status, siteDropdown.value, '', notesCell.querySelector('textarea').value);
-                });
-                assignmentCell.innerHTML = '';
-                assignmentCell.appendChild(siteDropdown);
-                notesCell.querySelector('textarea').disabled = false;
+                noteInput.style.display = 'block'; // Show the note field
+                noteHeader.style.display = 'table-cell'; // Show the Note column header
+                assignmentInput.replaceWith(createDropdown(siteAssignments, assignmentInput.value)); // Change Site Assignment to dropdown
             } else {
-                assignmentCell.innerHTML = '';
-                assignmentCell.appendChild(assignmentInput);
-                notesCell.querySelector('textarea').disabled = true;
+                noteInput.style.display = 'none'; // Hide the note field
+                noteHeader.style.display = 'none'; // Hide the Note column header
+                const dropdown = row.querySelector('.dropdown');
+                if (dropdown) {
+                    dropdown.replaceWith(assignmentInput); // Restore the input box for site assignment
+                }
             }
         }
 
-        function checkForChanges(index, status, assignment, usage, notes) {
+        function checkForChanges(index, status, assignment, usage, note) {
             const saveButton = document.querySelectorAll('.save-button')[index];
-            const initialState = previousState[index];
-
-            if (status !== initialState.status || assignment !== initialState.assignment || usage !== initialState.usage || notes !== initialState.notes) {
+            if (status !== previousState[index].status || 
+                assignment !== previousState[index].assignment || 
+                usage !== previousState[index].usage ||
+                note !== previousState[index].note) {
                 saveButton.classList.add('enabled');
                 saveButton.disabled = false;
             } else {
@@ -294,79 +195,28 @@
             }
         }
 
-        function saveRow(index, statusCell, assignmentInput, usageInput, notesInput) {
+        function saveRow(index, statusCell, assignmentInput, usageInput, assignmentError, usageError, noteInput) {
+            const saveButton = document.querySelectorAll('.save-button')[index];
             const status = statusCell.querySelector('select').value;
-            const assignment = assignmentInput.value;
+            const assignment = status === 'OUT OF ORDER' ? assignmentInput.querySelector('select').value : assignmentInput.value;
             const usage = usageInput.value;
-            const notes = notesInput.value;
+            const note = noteInput.value;
 
             localStorage.setItem(`vehicle-${index}-status`, status);
             localStorage.setItem(`vehicle-${index}-assignment`, assignment);
             localStorage.setItem(`vehicle-${index}-usage`, usage);
-            localStorage.setItem(`vehicle-${index}-notes`, notes);
+            if (status === 'OUT OF ORDER') {
+                localStorage.setItem(`vehicle-${index}-note`, note);
+            }
 
-            showNotification('Row data saved successfully!', false);
-
-            previousState[index] = { status, assignment, usage, notes };
-            const saveButton = document.querySelectorAll('.save-button')[index];
+            previousState[index] = { status, assignment, usage, note };
             saveButton.classList.remove('enabled');
             saveButton.disabled = true;
+
+            showClipboardNotification('Status update saved!');
         }
 
-        function showNotification(message, isError) {
-            const notification = document.getElementById('clipboard-notification');
-            notification.textContent = message;
-            notification.className = isError ? 'notification error' : 'notification';
-            notification.style.display = 'block';
-
-            setTimeout(() => {
-                notification.classList.add('fade-out');
-                setTimeout(() => notification.style.display = 'none', 2000);
-            }, 1000);
-        }
-
-        function clearAllData() {
-            const rows = document.querySelectorAll('#vehicle-table-body tr');
-            rows.forEach((row, index) => {
-                const statusCell = row.querySelector('select');
-                const assignmentInput = row.querySelector('input[placeholder="Enter assigned site"]');
-                const usageInput = row.querySelector('input[placeholder="Enter usage times"]');
-                const notesInput = row.querySelector('textarea');
-
-                statusCell.value = "--";
-                assignmentInput.value = "";
-                usageInput.value = "";
-                notesInput.value = "";
-
-                updateRowColor(row, "--");
-                checkForChanges(index, "--", "", "", "");
-            });
-        }
-
-        function undoLastAction() {
-            const rows = document.querySelectorAll('#vehicle-table-body tr');
-            rows.forEach((row, index) => {
-                const { status, assignment, usage, notes } = previousState[index];
-
-                const statusCell = row.querySelector('select');
-                const assignmentInput = row.querySelector('input[placeholder="Enter assigned site"]');
-                const usageInput = row.querySelector('input[placeholder="Enter usage times"]');
-                const notesInput = row.querySelector('textarea');
-
-                statusCell.value = status;
-                assignmentInput.value = assignment;
-                usageInput.value = usage;
-                notesInput.value = notes;
-
-                updateRowColor(row, status);
-                checkForChanges(index, status, assignment, usage, notes);
-            });
-        }
-
-        document.getElementById('clear-button').addEventListener('click', clearAllData);
-        document.getElementById('undo-button').addEventListener('click', undoLastAction);
-
-        populateTable();
+        document.addEventListener('DOMContentLoaded', populateTable);
     </script>
 </body>
 </html>
